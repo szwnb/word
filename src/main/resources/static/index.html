@@ -1,6 +1,84 @@
-<html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>词汇记忆引擎 - 准入系统</title>
+    <style>
+        /* 极简工程化样式声明 */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
+        .auth-container { background: #ffffff; padding: 2.5rem; border-radius: 10px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); width: 320px; }
+        h2 { text-align: center; color: #333; margin-bottom: 1.5rem; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; transition: border-color 0.3s; }
+        .input-group input:focus { border-color: #0056b3; outline: none; }
+        .action-btn { width: 100%; padding: 12px; background: #0056b3; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; }
+        .action-btn:hover { background: #004494; }
+        .mode-switch { text-align: center; margin-top: 15px; color: #666; font-size: 13px; cursor: pointer; text-decoration: underline; }
+    </style>
+</head>
 <body>
-<h1>hello word!!!</h1>
-<p>this is a html page</p>
+
+<div class="auth-container">
+    <h2 id="panel-title">系统登录</h2>
+    <div class="input-group">
+        <input type="text" id="account-id" placeholder="请输入用户名 (Username)">
+    </div>
+    <div class="input-group">
+        <input type="password" id="account-key" placeholder="请输入密码 (Password)">
+    </div>
+    <button class="action-btn" onclick="executeAuthentication()" id="execute-btn">确 认 登 录</button>
+    <div class="mode-switch" onclick="switchOperationMode()">切换至：建立新档案</div>
+</div>
+
+<script>
+    // 状态机：默认设定为登录模式
+    let currentModeIsLogin = true;
+
+    // 视图渲染更新逻辑
+    function switchOperationMode() {
+        currentModeIsLogin = !currentModeIsLogin;
+        document.getElementById('panel-title').innerText = currentModeIsLogin ? '单词组记系统登录' : '单词组记系统注册';
+        document.getElementById('execute-btn').innerText = currentModeIsLogin ? '确 认 登 录' : '注 册 档 案';
+        document.querySelector('.mode-switch').innerText = currentModeIsLogin ? '切换至：建立新档案' : '切换至：已有档案登录';
+    }
+
+    // 异步数据投递逻辑（核心引擎）
+    async function executeAuthentication() {
+        const userStr = document.getElementById('account-id').value.trim();
+        const passStr = document.getElementById('account-key').value.trim();
+
+        if (!userStr || !passStr) {
+            alert("校验驳回：标识与密令均不可处于空置状态。");
+            return;
+        }
+
+        // 动态路由决策
+        const targetEndpoint = currentModeIsLogin ? '/api/user/login' : '/api/user/register';
+
+        try {
+            // Fetch API 发起非阻塞 HTTP POST 请求
+            const serverResponse = await fetch(targetEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: userStr, password: passStr })
+            });
+
+            // 解析服务端返回的文本指令
+            const resultMessage = await serverResponse.text();
+            alert(resultMessage); // 弹出响应结果
+
+            // 业务节点研判：若登录验证通过，则清理当前控制台，预留至单词书模块的入口
+            if (resultMessage.includes('成功') && currentModeIsLogin) {
+                document.body.innerHTML = `
+                        <div style="text-align: center; margin-top: 20%;">
+                            <h2>身份核验通过</h2>
+                            <p>即将引导至核心记忆沙盒...</p>
+                        </div>`;
+            }
+        } catch (networkError) {
+            alert("信道阻断：无法与底层引擎建立通信，请审查端口驻留状态。");
+        }
+    }
+</script>
 </body>
 </html>
