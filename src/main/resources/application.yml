@@ -7,3 +7,7 @@ spring:
     username: szw
     password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
