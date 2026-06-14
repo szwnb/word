@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>核心记忆沙盒</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #eef2f5; margin: 0; }
+        .sandbox-card { background: #ffffff; padding: 50px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align: center; width: 420px; }
+        .lexicon-title { font-size: 54px; font-weight: bold; margin-bottom: 15px; color: #2c3e50; }
+        .lexicon-trans { font-size: 22px; color: #7f8c8d; margin-bottom: 35px; display: none; }
+        .trigger-btn { width: 100%; padding: 14px; background: #34495e; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; margin-bottom: 15px; }
+        .feedback-matrix { display: flex; justify-content: space-between; gap: 12px; display: none; }
+        .feedback-matrix button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; color: white; font-weight: bold; }
+        .status-forgot { background: #e74c3c; }
+        .status-fuzzy { background: #f39c12; }
+        .status-remember { background: #2ecc71; }
+    </style>
+</head>
+<body>
+<div class="sandbox-card">
+    <div id="completion-notice" style="display:none;">
+        <h2>队列清空</h2>
+        <p>当前区间的记忆标的已全部遍历完毕。</p>
+    </div>
+
+    <div id="active-study-zone">
+        <div class="lexicon-title" id="word-display">载入中...</div>
+        <div class="lexicon-trans" id="trans-display"></div>
+
+        <button class="trigger-btn" id="reveal-btn" onclick="exposeTranslation()">查 看 释 义</button>
+
+        <div class="feedback-matrix" id="action-panel">
+            <button class="status-forgot" onclick="transmitState(0)">未记住</button>
+            <button class="status-fuzzy" onclick="transmitState(1)">模 糊</button>
+            <button class="status-remember" onclick="transmitState(2)">已记住</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentLexiconQueue = [];
+    let cursorPosition = 0;
+
+    // 启动时自动从服务端调度词汇数据
+    async function initializeSandbox() {
+        try {
+            const response = await fetch('/api/word/study');
+            currentLexiconQueue = await response.json();
+
+            if (currentLexiconQueue.length === 0) {
+                haltSandbox();
+            } else {
+                renderCurrentTarget();
+            }
+        } catch (error) {
+            alert("信道异常：无法从数据中枢获取词汇序列表。");
+        }
+    }
+
+    // 将内存游标指向的词汇映射至视图层
+    function renderCurrentTarget() {
+        const activeNode = currentLexiconQueue[cursorPosition];
+        document.getElementById('word-display').innerText = activeNode.wordName;
+        document.getElementById('trans-display').innerText = activeNode.translation;
+
+        // 重置交互面板状态
+        document.getElementById('trans-display').style.display = 'none';
+        document.getElementById('reveal-btn').style.display = 'block';
+        document.getElementById('action-panel').style.display = 'none';
+    }
+
+    // 卸载认知阻力，展露翻译结果
+    function exposeTranslation() {
+        document.getElementById('trans-display').style.display = 'block';
+        document.getElementById('reveal-btn').style.display = 'none';
+        document.getElementById('action-panel').style.display = 'flex';
+    }
+
+    // 捕获用户认知判定，并向后端中枢投递状态指令
+    async function transmitState(statusValue) {
+        const activeNode = currentLexiconQueue[cursorPosition];
+
+        await fetch('/api/word/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wordId: activeNode.id, status: statusValue })
+        });
+
+        // 推进序列游标
+        cursorPosition++;
+        if (cursorPosition >= currentLexiconQueue.length) {
+            haltSandbox();
+        } else {
+            renderCurrentTarget();
+        }
+    }
+
+    // 中断并隐藏交互区域
+    function haltSandbox() {
+        document.getElementById('active-study-zone').style.display = 'none';
+        document.getElementById('completion-notice').style.display = 'block';
+    }
+
+    // 执行初始化序列
+    initializeSandbox();
+</script>
+</body>
+</html>
