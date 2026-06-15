@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>选择学习教材</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 50px; text-align: center; }
+        .book-container { display: flex; justify-content: center; gap: 20px; }
+        .book-card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; width: 200px; }
+        .book-card:hover { transform: translateY(-10px); box-shadow: 0 8px 12px rgba(0,0,0,0.2); }
+        h2 { color: #2c3e50; }
+    </style>
+</head>
+<body>
+<h1>请选择今日背诵教材</h1>
+<div class="book-container" id="book-list">
+</div>
+
+<script>
+    // 页面一加载，自动向刚才写好的后端接口要数据
+    fetch('/api/book/list')
+        .then(res => res.json())
+        .then(data => {
+            const container = document.getElementById('book-list');
+            data.forEach(book => {
+                const div = document.createElement('div');
+                div.className = 'book-card';
+                div.innerHTML = `<h2>${book.bookName}</h2><p>${book.description}</p>`;
+                // 点击卡片，把选中的书ID存到本地，然后跳去背词页面
+                div.onclick = () => {
+                    localStorage.setItem('selectedBookId', book.id);
+                    window.location.href = 'study.html';
+                };
+                container.appendChild(div);
+            });
+        });
+</script>
+</body>
+</html>
