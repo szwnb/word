@@ -2,6 +2,7 @@ package com.platform.word.controller;
 
 import com.platform.word.entity.UserWordRecord;
 import com.platform.word.entity.Word;
+import com.platform.word.entity.WordVO; // 注意：这里导入了用来展示列表的 WordVO
 import com.platform.word.mapper.UserWordRecordMapper;
 import com.platform.word.mapper.WordMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,39 +21,34 @@ public class WordController {
     @Autowired
     private UserWordRecordMapper recordMapper;
 
-    // 获取今日要背的单词列表 (刚才写好的)
+    // 1. 获取今日要背的单词列表
     @GetMapping("/study")
     public List<Word> getStudyWords() {
         return wordMapper.getWordsToStudy(1L, 1L); // 依然写死用户ID是1
     }
 
-    // 【新加的核心逻辑】：更新单词记忆状态
+    // 2. 接收前端打卡：记录单词记忆状态
     @PostMapping("/record")
     public String recordWordStatus(@RequestBody Map<String, Integer> payload) {
         Long userId = 1L; // 依然写死当前用户ID为1
         Long wordId = payload.get("wordId").longValue();
-        Integer status = payload.get("status"); // 状态: 0未记住, 1模糊, 2已记住
+        Integer status = payload.get("status");
 
-        // 1. 先去数据库查有没有这个词的记录
-        UserWordRecord record = recordMapper.getRecord(userId, wordId);
+        UserWordRecord record = new UserWordRecord();
+        record.setUserId(userId);
+        record.setWordId(wordId);
+        record.setStatus(status);
+        record.setWrongCount(status == 0 ? 1 : 0);
 
-        if (record == null) {
-            // 2. 没有记录说明是第一次背，新建一个
-            record = new UserWordRecord();
-            record.setUserId(userId);
-            record.setWordId(wordId);
-            record.setStatus(status);
-            record.setWrongCount(status == 0 ? 1 : 0); // 如果选了不认识(0)，记错次数直接记1
-            recordMapper.insertRecord(record);
-        } else {
-            // 3. 有记录说明以前背过，更新状态
-            record.setStatus(status);
-            if (status == 0) {
-                record.setWrongCount(record.getWrongCount() + 1); // 只要点了不认识，错误次数累计+1
-            }
-            recordMapper.updateRecord(record);
-        }
+        recordMapper.saveOrUpdateRecord(record);
 
         return "后端结算完毕：单词 " + wordId + " 的状态已更新为 " + status;
+    }
+
+    // 3. 【全新保底功能】：获取特定单词书的进度列表 (千人千面)
+    @GetMapping("/list")
+    public List<WordVO> getBookWordList(@RequestParam Long bookId) {
+        Long userId = 1L;
+        return wordMapper.getWordListWithStatus(bookId, userId);
     }
 }

@@ -44,7 +44,8 @@
     // 启动时自动从服务端调度词汇数据
     async function initializeSandbox() {
         try {
-            const response = await fetch('/api/word/study');
+            const bookId = localStorage.getItem('selectedBookId'); // 从刚才选书页面读出ID
+            const response = await fetch(`/api/word/study?bookId=${bookId}`); // 带上参数传给后端
             currentLexiconQueue = await response.json();
 
             if (currentLexiconQueue.length === 0) {
