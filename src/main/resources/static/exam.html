@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>随堂自测引擎</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #2c3e50; margin: 0; }
+        .exam-card { background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); width: 450px; text-align: center; }
+        .progress-bar { font-size: 14px; color: #7f8c8d; margin-bottom: 20px; font-weight: bold; }
+        .question-text { font-size: 32px; font-weight: bold; color: #2980b9; margin-bottom: 30px; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .option-btn { background: #ecf0f1; border: 2px solid #bdc3c7; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; color: #34495e; }
+        .option-btn:hover { background: #bdc3c7; }
+        .result-screen { display: none; }
+        .final-score { font-size: 60px; color: #2ecc71; font-weight: bold; margin: 20px 0; }
+        .back-btn { padding: 10px 25px; background: #34495e; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="exam-card">
+    <div id="quiz-screen">
+        <div class="progress-bar" id="progress-indicator">题目载入中...</div>
+        <div class="question-text" id="question-display"></div>
+        <div class="options-grid" id="options-container">
+        </div>
+    </div>
+
+    <div class="result-screen" id="result-screen">
+        <h2>🎉 测验完成！</h2>
+        <p>你的最终得分是：</p>
+        <div class="final-score" id="score-display">100</div>
+        <button class="back-btn" onclick="location.reload()">再测一次</button>
+    </div>
+</div>
+
+<script>
+    let paper = [];       // 试卷数组
+    let currentIndex = 0; // 当前题号
+    let correctCount = 0; // 答对数量
+
+    // 1. 初始化：向后端索要试卷
+    async function loadExamPaper() {
+        try {
+            const bookId = localStorage.getItem('selectedBookId') || 1;
+            // 默认抽 10 道题，如果库里不够，你的后端会自动降级适应
+            const response = await fetch(`/api/exam/generate?bookId=${bookId}&count=10`);
+            paper = await response.json();
+
+            if (paper.length === 0) {
+                alert("当前词库中没有单词，无法生成试卷！");
+                return;
+            }
+            renderQuestion();
+        } catch (error) {
+            alert("考卷拉取失败，请检查后端状态！");
+        }
+    }
+
+    // 2. 渲染单道题目
+    function renderQuestion() {
+        const currentQ = paper[currentIndex];
+
+        // 更新进度条和题干
+        document.getElementById('progress-indicator').innerText = `当前进度：第 ${currentIndex + 1} / ${paper.length} 题`;
+        document.getElementById('question-display').innerText = currentQ.questionText;
+
+        // 清空并生成 4 个选项按钮
+        const container = document.getElementById('options-container');
+        container.innerHTML = '';
+
+        currentQ.options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = opt;
+            // 点击选项时，立刻进行判分
+            btn.onclick = () => checkAnswer(opt, currentQ.correctAnswer);
+            container.appendChild(btn);
+        });
+    }
+
+    // 3. 判分引擎与翻页逻辑
+    function checkAnswer(selected, correct) {
+        if (selected === correct) {
+            correctCount++; // 答对了，计分
+        }
+
+        // 瞬间切到下一题
+        currentIndex++;
+        if (currentIndex >= paper.length) {
+            showResult(); // 题做完了，出成绩
+        } else {
+            renderQuestion();
+        }
+    }
+
+    // 4. 展示最终成绩面板
+    function showResult() {
+        document.getElementById('quiz-screen').style.display = 'none';
+        const resultScreen = document.getElementById('result-screen');
+        resultScreen.style.display = 'block';
+
+        // 计算百分制分数
+        const score = Math.round((correctCount / paper.length) * 100);
+        document.getElementById('score-display').innerText = score + ' 分';
+    }
+
+    // 启动考试！
+    loadExamPaper();
+</script>
+
+</body>
+</html>
