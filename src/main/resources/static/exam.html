@@ -2,70 +2,153 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>随堂自测引擎</title>
+    <title>随堂自测智能沙盒</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #2c3e50; margin: 0; }
-        .exam-card { background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); width: 450px; text-align: center; }
-        .progress-bar { font-size: 14px; color: #7f8c8d; margin-bottom: 20px; font-weight: bold; }
-        .question-text { font-size: 32px; font-weight: bold; color: #2980b9; margin-bottom: 30px; }
-        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .option-btn { background: #ecf0f1; border: 2px solid #bdc3c7; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; color: #34495e; }
-        .option-btn:hover { background: #bdc3c7; }
-        .result-screen { display: none; }
-        .final-score { font-size: 60px; color: #2ecc71; font-weight: bold; margin: 20px 0; }
-        .back-btn { padding: 10px 25px; background: #34495e; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 20px; }
+        .exam-card { background: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); width: 480px; text-align: center; }
+        .config-group { margin-bottom: 20px; text-align: left; }
+        .config-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #34495e; }
+        .config-group input, .config-group select { width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; }
+        .progress-bar { display: flex; justify-content: space-between; font-size: 14px; color: #7f8c8d; margin-bottom: 20px; font-weight: bold; }
+        .timer-alert { color: #e74c3c; }
+        .question-text { font-size: 30px; font-weight: bold; color: #2980b9; margin-bottom: 30px; min-height: 80px; display: flex; justify-content: center; align-items: center; }
+        .options-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        .option-btn { background: #style; border: 2px solid #ecf0f1; background: #f8f9fa; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; text-align: left; transition: 0.2s; }
+        .option-btn:hover { background: #e9ecef; border-color: #34495e; }
+        .start-btn, .back-btn { width: 100%; padding: 14px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .back-btn { background: #34495e; margin-top: 20px; }
+        .screen { display: none; }
+        .active { display: block; }
+        .final-score { font-size: 64px; color: #2ecc71; font-weight: bold; margin: 20px 0; }
     </style>
 </head>
 <body>
 
 <div class="exam-card">
-    <div id="quiz-screen">
-        <div class="progress-bar" id="progress-indicator">题目载入中...</div>
-        <div class="question-text" id="question-display"></div>
-        <div class="options-grid" id="options-container">
+    <div id="config-screen" class="screen active">
+        <h2>📝 考前自测设置</h2>
+        <div class="config-group">
+            <label>选择测试词库：</label>
+            <select id="book-selector">
+                <option value="1">默认单词书 (ID: 1)</option>
+            </select>
         </div>
+        <div class="config-group">
+            <label>题量设置 (题数)：</label>
+            <input type="number" id="quiz-count" value="10" min="1">
+        </div>
+        <div class="config-group">
+            <label>英翻中（看英文选中文）比例 (%)：</label>
+            <input type="number" id="quiz-ratio" value="50" min="0" max="100">
+        </div>
+        <div class="config-group">
+            <label>限时设置 (分钟)：</label>
+            <input type="number" id="quiz-time" value="5" min="1">
+        </div>
+        <button class="start-btn" onclick="startNewExam()">开 始 考 试</button>
     </div>
 
-    <div class="result-screen" id="result-screen">
-        <h2>🎉 测验完成！</h2>
-        <p>你的最终得分是：</p>
-        <div class="final-score" id="score-display">100</div>
-        <button class="back-btn" onclick="location.reload()">再测一次</button>
+    <div id="quiz-screen" class="screen">
+        <div class="progress-bar">
+            <span id="progress-indicator">第 0 / 0 题</span>
+            <span id="timer-display" class="timer-alert">倒计时：00:00</span>
+        </div>
+        <div class="question-text" id="question-display"></div>
+        <div class="options-grid" id="options-container"></div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <h2>🎉 考试结束</h2>
+        <p>系统自动阅卷得分：</p>
+        <div class="final-score" id="score-display">0 分</div>
+        <p id="detail-display"></p>
+        <button class="back-btn" onclick="resetExam()">返回主页</button>
     </div>
 </div>
 
 <script>
-    let paper = [];       // 试卷数组
-    let currentIndex = 0; // 当前题号
-    let correctCount = 0; // 答对数量
+    let paper = [];
+    let currentIndex = 0;
+    let correctCount = 0;
+    let timerInterval = null;
+    let examEndTime = 0;
+    let currentBookId = 1;
 
-    // 1. 初始化：向后端索要试卷
-    async function loadExamPaper() {
+    // 页面加载时，检查是否有未完成的考试记录（断电续考恢复）
+    window.onload = function() {
+        if (localStorage.getItem('exam_running') === 'true') {
+            const now = Date.now();
+            examEndTime = parseInt(localStorage.getItem('exam_end_time'));
+
+            if (now < examEndTime) {
+                // 时间没到，恢复现场
+                paper = JSON.parse(localStorage.getItem('exam_paper'));
+                currentIndex = parseInt(localStorage.getItem('exam_index'));
+                correctCount = parseInt(localStorage.getItem('exam_correct'));
+                currentBookId = parseInt(localStorage.getItem('exam_book_id'));
+
+                switchScreen('quiz-screen');
+                startTimerLoop();
+                renderQuestion();
+                return;
+            } else {
+                clearExamStorage(); // 超时了，废弃
+            }
+        }
+    };
+
+    // 开启新考试
+    async function startNewExam() {
+        currentBookId = document.getElementById('book-selector').value;
+        const count = document.getElementById('quiz-count').value;
+        const ratio = document.getElementById('quiz-ratio').value;
+        const minutes = document.getElementById('quiz-time').value;
+
         try {
-            const bookId = localStorage.getItem('selectedBookId') || 1;
-            // 默认抽 10 道题，如果库里不够，你的后端会自动降级适应
-            const response = await fetch(`/api/exam/generate?bookId=${bookId}&count=10`);
+            const response = await fetch(`/api/exam/generate?bookId=${currentBookId}&count=${count}&reverseRatio=${ratio}`);
             paper = await response.json();
 
-            if (paper.length === 0) {
-                alert("当前词库中没有单词，无法生成试卷！");
-                return;
-            }
+            if(paper.length === 0) { alert("该词库没有数据！"); return; }
+
+            // 计算结束时间戳，存入缓存
+            examEndTime = Date.now() + (minutes * 60 * 1000);
+            currentIndex = 0;
+            correctCount = 0;
+
+            saveStateToStorage();
+            localStorage.setItem('exam_running', 'true');
+
+            switchScreen('quiz-screen');
+            startTimerLoop();
             renderQuestion();
         } catch (error) {
-            alert("考卷拉取失败，请检查后端状态！");
+            alert("获取考卷异常");
         }
     }
 
-    // 2. 渲染单道题目
+    // 实时保存现场状态
+    function saveStateToStorage() {
+        localStorage.setItem('exam_paper', JSON.stringify(paper));
+        localStorage.setItem('exam_index', currentIndex);
+        localStorage.setItem('exam_correct', correctCount);
+        localStorage.setItem('exam_end_time', examEndTime);
+        localStorage.setItem('exam_book_id', currentBookId);
+    }
+
+    function clearExamStorage() {
+        localStorage.removeItem('exam_running');
+        localStorage.removeItem('exam_paper');
+        localStorage.removeItem('exam_index');
+        localStorage.removeItem('exam_correct');
+        localStorage.removeItem('exam_end_time');
+    }
+
+    // 渲染题目
     function renderQuestion() {
         const currentQ = paper[currentIndex];
-
-        // 更新进度条和题干
-        document.getElementById('progress-indicator').innerText = `当前进度：第 ${currentIndex + 1} / ${paper.length} 题`;
+        document.getElementById('progress-indicator').innerText = `题目：${currentIndex + 1} / ${paper.length}`;
         document.getElementById('question-display').innerText = currentQ.questionText;
 
-        // 清空并生成 4 个选项按钮
         const container = document.getElementById('options-container');
         container.innerHTML = '';
 
@@ -73,41 +156,75 @@
             const btn = document.createElement('button');
             btn.className = 'option-btn';
             btn.innerText = opt;
-            // 点击选项时，立刻进行判分
-            btn.onclick = () => checkAnswer(opt, currentQ.correctAnswer);
+            btn.onclick = () => handleAnswer(opt, currentQ.correctAnswer);
             container.appendChild(btn);
         });
     }
 
-    // 3. 判分引擎与翻页逻辑
-    function checkAnswer(selected, correct) {
-        if (selected === correct) {
-            correctCount++; // 答对了，计分
-        }
+    // 处理用户选择
+    function handleAnswer(selected, correct) {
+        if (selected === correct) correctCount++;
 
-        // 瞬间切到下一题
         currentIndex++;
+        saveStateToStorage(); // 没作完一题，立刻同步本地缓存
+
         if (currentIndex >= paper.length) {
-            showResult(); // 题做完了，出成绩
+            finishExam();
         } else {
             renderQuestion();
         }
     }
 
-    // 4. 展示最终成绩面板
-    function showResult() {
-        document.getElementById('quiz-screen').style.display = 'none';
-        const resultScreen = document.getElementById('result-screen');
-        resultScreen.style.display = 'block';
+    // 倒计时循环引擎
+    function startTimerLoop() {
+        if (timerInterval) clearInterval(timerInterval);
 
-        // 计算百分制分数
-        const score = Math.round((correctCount / paper.length) * 100);
-        document.getElementById('score-display').innerText = score + ' 分';
+        timerInterval = setInterval(() => {
+            const remain = examEndTime - Date.now();
+            if (remain <= 0) {
+                clearInterval(timerInterval);
+                alert("考试时间到！系统已强制收卷。");
+                finishExam();
+                return;
+            }
+            const m = Math.floor(remain / 1000 / 60).toString().padStart(2, '0');
+            const s = Math.floor((remain / 1000) % 60).toString().padStart(2, '0');
+            document.getElementById('timer-display').innerText = `倒计时 ${m}:${s}`;
+        }, 1000);
     }
 
-    // 启动考试！
-    loadExamPaper();
-</script>
+    // 结束考试并自动把成绩打包发送给后端落库
+    async function finishExam() {
+        clearInterval(timerInterval);
+        clearExamStorage();
 
+        const score = Math.round((correctCount / paper.length) * 100);
+
+        document.getElementById('score-display').innerText = score + " 分";
+        document.getElementById('detail-display').innerText = `总题数：${paper.length} 道，答对：${correctCount} 道`;
+        switchScreen('result-screen');
+
+        // 向后端中枢投递投递数据记录
+        await fetch('/api/exam/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bookId: currentBookId,
+                score: score,
+                totalCount: paper.length,
+                correctCount: correctCount
+            })
+        });
+    }
+
+    function switchScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    function resetExam() {
+        switchScreen('config-screen');
+    }
+</script>
 </body>
 </html>
