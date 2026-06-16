@@ -23,5 +23,7 @@ public interface WordMapper {
             "LEFT JOIN user_word_record r ON w.id = r.word_id AND r.user_id = #{userId} " +
             "WHERE w.book_id = #{bookId}")
     List<WordVO> getWordListWithStatus(@Param("bookId") Long bookId, @Param("userId") Long userId);
-
+    // 为自测考试引擎捞取整本书的单词字典
+    @Select("SELECT * FROM word WHERE book_id = #{bookId}")
+    List<Word> getAllWordsByBookId(@Param("bookId") Long bookId);
 } // <--- 注意看，大括号在这里完美收尾！
