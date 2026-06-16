@@ -22,9 +22,11 @@ public class WordController {
     private UserWordRecordMapper recordMapper;
 
     // 1. 获取今日要背的单词列表
+    // 1. 获取今日要背的单词列表 (接收前端传来的书本ID)
     @GetMapping("/study")
-    public List<Word> getStudyWords() {
-        return wordMapper.getWordsToStudy(1L, 1L); // 依然写死用户ID是1
+    public List<Word> getStudyWords(@RequestParam Long bookId) {
+        // userId 依然暂时写死为 1L，但 bookId 已经变成动态接收前端指令了！
+        return wordMapper.getWordsToStudy(bookId, 1L);
     }
 
     // 2. 接收前端打卡：记录单词记忆状态

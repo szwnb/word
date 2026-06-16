@@ -41,11 +41,12 @@
     let currentLexiconQueue = [];
     let cursorPosition = 0;
 
-    // 启动时自动从服务端调度词汇数据
+    // 1. 启动时自动从服务端调度词汇数据
     async function initializeSandbox() {
         try {
-            const bookId = localStorage.getItem('selectedBookId'); // 从刚才选书页面读出ID
-            const response = await fetch(`/api/word/study?bookId=${bookId}`); // 带上参数传给后端
+            // 如果本地没有选书记录，为了测试防崩溃，默认传 bookId=1
+            const bookId = localStorage.getItem('selectedBookId') || 1;
+            const response = await fetch(`/api/word/study?bookId=${bookId}`);
             currentLexiconQueue = await response.json();
 
             if (currentLexiconQueue.length === 0) {
@@ -58,7 +59,7 @@
         }
     }
 
-    // 将内存游标指向的词汇映射至视图层
+    // 2. 将内存游标指向的词汇映射至视图层
     function renderCurrentTarget() {
         const activeNode = currentLexiconQueue[cursorPosition];
         document.getElementById('word-display').innerText = activeNode.wordName;
@@ -70,24 +71,35 @@
         document.getElementById('action-panel').style.display = 'none';
     }
 
-    // 卸载认知阻力，展露翻译结果
+    // 3. 卸载认知阻力，展露翻译结果
     function exposeTranslation() {
         document.getElementById('trans-display').style.display = 'block';
         document.getElementById('reveal-btn').style.display = 'none';
         document.getElementById('action-panel').style.display = 'flex';
     }
 
-    // 捕获用户认知判定，并向后端中枢投递状态指令
+    // 4. 【核心升级】：捕获反馈，推送后端，并动态改变本地队列长度
     async function transmitState(statusValue) {
         const activeNode = currentLexiconQueue[cursorPosition];
 
-        await fetch('/api/word/record', {
+        // A. 异步将真实状态同步给后端数据库 (你的防重SQL会自动处理)
+        fetch('/api/word/record', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ wordId: activeNode.id, status: statusValue })
         });
 
-        // 推进序列游标
+        // B. 需求算法实现：控制重现频次
+        if (statusValue === 1) {
+            // 模糊：将当前单词再推入队列末尾 1 次
+            currentLexiconQueue.push(activeNode);
+        } else if (statusValue === 0) {
+            // 未记住：将当前单词再推入队列末尾 2 次
+            currentLexiconQueue.push(activeNode, activeNode);
+        }
+        // 如果是已记住 (statusValue === 2)，什么都不加，游标划过即彻底消失
+
+        // C. 推进序列游标
         cursorPosition++;
         if (cursorPosition >= currentLexiconQueue.length) {
             haltSandbox();
@@ -96,7 +108,7 @@
         }
     }
 
-    // 中断并隐藏交互区域
+    // 5. 中断并隐藏交互区域
     function haltSandbox() {
         document.getElementById('active-study-zone').style.display = 'none';
         document.getElementById('completion-notice').style.display = 'block';
