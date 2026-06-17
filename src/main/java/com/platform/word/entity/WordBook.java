@@ -7,4 +7,7 @@ public class WordBook {
     private Long id;
     private String bookName;
     private String description;
+
+    private String targetAudience; // 适用人群
+    private Integer wordCount;     // 总词汇量
 }

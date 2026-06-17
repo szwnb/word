@@ -2,38 +2,83 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>选择学习教材</title>
+    <title>词汇图书馆 - 控制中枢</title>
     <style>
-        body { font-family: sans-serif; background: #f4f7f6; padding: 50px; text-align: center; }
-        .book-container { display: flex; justify-content: center; gap: 20px; }
-        .book-card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; width: 200px; }
-        .book-card:hover { transform: translateY(-10px); box-shadow: 0 8px 12px rgba(0,0,0,0.2); }
-        h2 { color: #2c3e50; }
+        body { font-family: 'Segoe UI', sans-serif; background: #eef2f5; padding: 40px; margin: 0; }
+        .dashboard { max-width: 1000px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #bdc3c7; padding-bottom: 15px; margin-bottom: 30px; }
+        .header h2 { margin: 0; color: #2c3e50; }
+        .user-greeting { font-weight: bold; color: #2980b9; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: transform 0.2s; }
+        .card:hover { transform: translateY(-5px); }
+        .card h3 { margin-top: 0; color: #34495e; font-size: 22px; }
+        .card p { font-size: 14px; color: #7f8c8d; min-height: 40px; }
+        .tags { display: inline-block; font-size: 12px; color: white; background: #95a5a6; padding: 5px 10px; border-radius: 15px; margin-right: 5px; margin-bottom: 15px; }
+        .actions { display: flex; gap: 10px; margin-top: 10px; }
+        button { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        .btn-study { background: #27ae60; } .btn-study:hover { background: #2ecc71; }
+        .btn-list { background: #2980b9; } .btn-list:hover { background: #3498db; }
+        .btn-exam { background: #e67e22; } .btn-exam:hover { background: #f39c12; }
     </style>
 </head>
 <body>
-<h1>请选择今日背诵教材</h1>
-<div class="book-container" id="book-list">
+
+<div class="dashboard">
+    <div class="header">
+        <h2>📚 核心词汇图书馆</h2>
+        <span class="user-greeting" id="user-greeting">正在核验身份...</span>
+    </div>
+
+    <div class="grid" id="book-container">
+        <div style="color: #7f8c8d;">数据拉取中，请稍候...</div>
+    </div>
 </div>
 
 <script>
-    // 页面一加载，自动向刚才写好的后端接口要数据
-    fetch('/api/book/list')
-        .then(res => res.json())
-        .then(data => {
-            const container = document.getElementById('book-list');
-            data.forEach(book => {
-                const div = document.createElement('div');
-                div.className = 'book-card';
-                div.innerHTML = `<h2>${book.bookName}</h2><p>${book.description}</p>`;
-                // 点击卡片，把选中的书ID存到本地，然后跳去背词页面
-                div.onclick = () => {
-                    localStorage.setItem('selectedBookId', book.id);
-                    window.location.href = 'study.html';
-                };
-                container.appendChild(div);
+    // 1. 获取并展示刚才登录存下来的用户名
+    const currentUser = localStorage.getItem('current_user') || '探索者';
+    document.getElementById('user-greeting').innerText = `欢迎你，${currentUser}`;
+
+    // 2. 从后端调取词汇书列表
+    async function loadLibrary() {
+        try {
+            const response = await fetch('/api/book/list');
+            const books = await response.json();
+            const container = document.getElementById('book-container');
+            container.innerHTML = ''; // 清空加载提示
+
+            books.forEach(book => {
+                container.innerHTML += `
+                    <div class="card">
+                        <h3>${book.bookName}</h3>
+                        <p>${book.description}</p>
+                        <div>
+                            <span class="tags">适用: ${book.targetAudience || '通用群体'}</span>
+                            <span class="tags">词汇量: ${book.wordCount || 0} 词</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-study" onclick="dispatchAction('study.html', ${book.id})">背单词</button>
+                            <button class="btn-list" onclick="dispatchAction('word-list.html', ${book.id})">看进度</button>
+                            <button class="btn-exam" onclick="dispatchAction('exam.html', ${book.id})">去自测</button>
+                        </div>
+                    </div>
+                `;
             });
-        });
+        } catch (error) {
+            document.getElementById('book-container').innerHTML = '<div style="color:red;">网络异常：无法获取书架数据。</div>';
+        }
+    }
+
+    // 3. 核心分发逻辑：点击按钮时，记录选择的书本ID，并跳转到对应功能区
+    function dispatchAction(targetPage, bookId) {
+        localStorage.setItem('selectedBookId', bookId); // 把选中的书本ID存入口袋
+        window.location.href = '/' + targetPage;        // 带着口袋里的ID去别的页面
+    }
+
+    // 启动渲染
+    loadLibrary();
 </script>
+
 </body>
 </html>
