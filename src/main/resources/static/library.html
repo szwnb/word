@@ -27,7 +27,10 @@
 <div class="dashboard">
     <div class="header">
         <h2>📚 核心词汇图书馆</h2>
-        <span class="user-greeting" id="user-greeting">正在核验身份...</span>
+        <div>
+            <span class="user-greeting" id="user-greeting" style="margin-right: 15px;">正在核验身份...</span>
+            <button onclick="logout()" style="background: #e74c3c; padding: 6px 12px; font-size: 12px;">退出登录</button>
+        </div>
     </div>
 
     <div class="grid" id="book-container">
@@ -39,6 +42,12 @@
     // 1. 获取并展示刚才登录存下来的用户名
     const currentUser = localStorage.getItem('current_user') || '探索者';
     document.getElementById('user-greeting').innerText = `欢迎你，${currentUser}`;
+
+    // 【修复点】：这里补上退出登录的逻辑，彻底消灭红线
+    function logout() {
+        localStorage.removeItem('current_user'); // 清理身份牌
+        window.location.href = '/index.html';    // 滚回大门登录页
+    }
 
     // 2. 从后端调取词汇书列表
     async function loadLibrary() {
@@ -70,10 +79,10 @@
         }
     }
 
-    // 3. 核心分发逻辑：点击按钮时，记录选择的书本ID，并跳转到对应功能区
+    // 3. 核心分发逻辑
     function dispatchAction(targetPage, bookId) {
-        localStorage.setItem('selectedBookId', bookId); // 把选中的书本ID存入口袋
-        window.location.href = '/' + targetPage;        // 带着口袋里的ID去别的页面
+        localStorage.setItem('selectedBookId', bookId);
+        window.location.href = '/' + targetPage;
     }
 
     // 启动渲染
