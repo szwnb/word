@@ -43,6 +43,7 @@
     }
 
     // 异步数据投递逻辑（核心引擎）
+    // 异步数据投递逻辑（核心引擎）
     async function executeAuthentication() {
         const userStr = document.getElementById('account-id').value.trim();
         const passStr = document.getElementById('account-key').value.trim();
@@ -52,28 +53,38 @@
             return;
         }
 
-        // 动态路由决策
         const targetEndpoint = currentModeIsLogin ? '/api/user/login' : '/api/user/register';
 
         try {
-            // Fetch API 发起非阻塞 HTTP POST 请求
             const serverResponse = await fetch(targetEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: userStr, password: passStr })
             });
 
-            // 解析服务端返回的文本指令
             const resultMessage = await serverResponse.text();
-            alert(resultMessage); // 弹出响应结果
 
-            // 业务节点研判：若登录验证通过，则清理当前控制台，预留至单词书模块的入口
-            if (resultMessage.includes('成功') && currentModeIsLogin) {
+            // 登录/注册失败，或者只是注册成功，仅弹窗提示
+            if (!resultMessage.includes('登录成功')) {
+                alert(resultMessage);
+            }
+
+            // 核心修复点：明确判断只有【登录成功】才执行清屏和跳转
+            if (resultMessage.includes('登录成功') && currentModeIsLogin) {
+                // 1. 记录身份
+                localStorage.setItem('current_user', userStr);
+
+                // 2. 清屏展示跃迁动画
                 document.body.innerHTML = `
                         <div style="text-align: center; margin-top: 20%;">
                             <h2>身份核验通过</h2>
-                            <p>即将引导至核心记忆沙盒...</p>
+                            <p>信道已建立，正在跃迁至词汇图书馆...</p>
                         </div>`;
+
+                // 3. 核心动作：倒数 1.5 秒后强制跳转到图书馆页面
+                setTimeout(() => {
+                    window.location.href = '/library.html';
+                }, 1500);
             }
         } catch (networkError) {
             alert("信道阻断：无法与底层引擎建立通信，请审查端口驻留状态。");
