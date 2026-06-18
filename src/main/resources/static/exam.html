@@ -105,7 +105,8 @@
         const minutes = document.getElementById('quiz-time').value;
 
         try {
-            const response = await fetch(`/api/exam/generate?bookId=${currentBookId}&count=${count}&reverseRatio=${ratio}`);
+            const currentUser = localStorage.getItem('current_user');
+            const response = await fetch(`/api/exam/submit?username=${currentUser}`,
             paper = await response.json();
 
             if(paper.length === 0) { alert("该词库没有数据！"); return; }

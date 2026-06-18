@@ -3,8 +3,10 @@ package com.platform.word.controller;
 import com.platform.word.entity.QuestionVO;
 import com.platform.word.entity.Word;
 import com.platform.word.entity.ExamRecord;
+import com.platform.word.entity.User; // 【新增】导入 User 实体
 import com.platform.word.mapper.WordMapper;
 import com.platform.word.mapper.ExamRecordMapper;
+import com.platform.word.mapper.UserMapper; // 【新增】导入 UserMapper
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,9 +22,13 @@ public class ExamController {
     private WordMapper wordMapper;
 
     @Autowired
-    private ExamRecordMapper examRecordMapper; // 注入新 Mapper
+    private ExamRecordMapper examRecordMapper;
 
-    // 生成随机自测卷 (保持不变)
+    // 【新增】：注入 UserMapper，用来根据用户名查真实的 ID
+    @Autowired
+    private UserMapper userMapper;
+
+    // 生成随机自测卷 (保持完美，一行没动)
     @GetMapping("/generate")
     public List<QuestionVO> generateExam(
             @RequestParam Long bookId,
@@ -72,17 +78,24 @@ public class ExamController {
         return examPaper;
     }
 
-    // 【新增】：接收前端提交的考试成绩并落库
+    // 【修复点 1】：交卷时，接收前端传来的 username，查出真实 ID 再存入数据库
     @PostMapping("/submit")
-    public String submitExam(@RequestBody ExamRecord record) {
-        record.setUserId(1L); // 依然先写死当前用户为 1L
+    public String submitExam(@RequestBody ExamRecord record, @RequestParam String username) {
+        User user = userMapper.findByUsername(username);
+        if (user != null) {
+            record.setUserId(user.getId()); // 替换掉原来的 1L
+        }
         examRecordMapper.insertRecord(record);
         return "成绩已成功记录到数据库！生成记录ID：" + record.getId();
     }
-    // 获取当前用户的考试历史记录
+
+    // 【修复点 2】：查历史时，接收前端传来的 username，查出真实 ID 再去查成绩
     @GetMapping("/history")
-    public List<ExamRecord> getHistory() {
-        // 目前单机版默认查用户ID为 1L 的记录
-        return examRecordMapper.getHistoryByUserId(1L);
+    public List<ExamRecord> getHistory(@RequestParam String username) {
+        User user = userMapper.findByUsername(username);
+        if (user == null) {
+            return Collections.emptyList(); // 如果没查到人，返回空列表防崩溃
+        }
+        return examRecordMapper.getHistoryByUserId(user.getId()); // 替换掉原来的 1L
     }
 }
