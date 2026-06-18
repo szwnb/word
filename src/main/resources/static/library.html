@@ -29,6 +29,7 @@
         <h2>📚 核心词汇图书馆</h2>
         <div>
             <span class="user-greeting" id="user-greeting" style="margin-right: 15px;">正在核验身份...</span>
+            <button onclick="window.location.href='/history.html'" style="background: #8e44ad; padding: 6px 12px; font-size: 12px; margin-right: 10px;">测试记录</button>
             <button onclick="logout()" style="background: #e74c3c; padding: 6px 12px; font-size: 12px;">退出登录</button>
         </div>
     </div>
@@ -43,7 +44,7 @@
     const currentUser = localStorage.getItem('current_user') || '探索者';
     document.getElementById('user-greeting').innerText = `欢迎你，${currentUser}`;
 
-    // 【修复点】：这里补上退出登录的逻辑，彻底消灭红线
+    // 退出登录逻辑
     function logout() {
         localStorage.removeItem('current_user'); // 清理身份牌
         window.location.href = '/index.html';    // 滚回大门登录页

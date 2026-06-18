@@ -79,4 +79,10 @@ public class ExamController {
         examRecordMapper.insertRecord(record);
         return "成绩已成功记录到数据库！生成记录ID：" + record.getId();
     }
+    // 获取当前用户的考试历史记录
+    @GetMapping("/history")
+    public List<ExamRecord> getHistory() {
+        // 目前单机版默认查用户ID为 1L 的记录
+        return examRecordMapper.getHistoryByUserId(1L);
+    }
 }

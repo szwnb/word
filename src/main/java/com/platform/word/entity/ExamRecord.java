@@ -10,7 +10,9 @@ public class ExamRecord {
     private Integer totalCount;
     private Integer correctCount;
     private Date examTime;
-
+    private String bookName; // 用于前端展示书名，数据库里没这个字段，是用 SQL 连表查出来的
+    public String getBookName() { return bookName; }
+    public void setBookName(String bookName) { this.bookName = bookName; }
     // Getter 和 Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

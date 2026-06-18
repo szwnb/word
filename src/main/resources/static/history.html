@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>我的测试记录</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #eef2f5; padding: 40px; margin: 0; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #bdc3c7; padding-bottom: 15px; margin-bottom: 20px; }
+        .header h2 { margin: 0; color: #2c3e50; }
+        .back-btn { background: #34495e; color: white; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 15px; text-align: center; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; color: #34495e; font-weight: bold; }
+        tr:hover { background-color: #f1f2f6; }
+        .score-high { color: #27ae60; font-weight: bold; }
+        .score-low { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>📊 历史战绩面板</h2>
+        <a href="/library.html" class="back-btn">返回图书馆</a>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>考试时间</th>
+            <th>考核词库</th>
+            <th>得分</th>
+            <th>详情 (对/总)</th>
+        </tr>
+        </thead>
+        <tbody id="history-body">
+        <tr><td colspan="4" style="color: #7f8c8d;">数据拉取中...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function loadHistory() {
+        try {
+            const response = await fetch('/api/exam/history');
+            const records = await response.json();
+            const tbody = document.getElementById('history-body');
+            tbody.innerHTML = '';
+
+            if(records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="color: #7f8c8d;">暂无考试记录，快去自测一下吧！</td></tr>';
+                return;
+            }
+
+            records.forEach(record => {
+                // 格式化时间
+                const date = new Date(record.examTime);
+                const timeStr = date.toLocaleString('zh-CN', { hour12: false });
+
+                // 分数颜色：及格变绿，不及格变红
+                const scoreClass = record.score >= 60 ? 'score-high' : 'score-low';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${timeStr}</td>
+                        <td>${record.bookName || '未知书目'}</td>
+                        <td class="${scoreClass}">${record.score} 分</td>
+                        <td>${record.correctCount} / ${record.totalCount}</td>
+                    </tr>
+                `;
+            });
+        } catch (error) {
+            document.getElementById('history-body').innerHTML = '<tr><td colspan="4" style="color:red;">数据加载失败，请检查后端网络！</td></tr>';
+        }
+    }
+
+    loadHistory();
+</script>
+
+</body>
+</html>
