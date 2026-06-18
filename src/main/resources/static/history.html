@@ -43,7 +43,22 @@
 <script>
     async function loadHistory() {
         try {
-            const response = await fetch('/api/exam/history');
+            // 【核心修复】：从口袋里掏出当前登录的用户名
+            const currentUser = localStorage.getItem('current_user');
+
+            // 如果没拿到名字，直接拦截
+            if (!currentUser) {
+                document.getElementById('history-body').innerHTML = '<tr><td colspan="4" style="color:red;">身份丢失，请重新登录！</td></tr>';
+                return;
+            }
+
+            // 【核心修复】：把用户名拼接到 URL 后面发给后端
+            const response = await fetch(`/api/exam/history?username=${currentUser}`);
+
+            if (!response.ok) {
+                throw new Error("后端接口请求被拒绝");
+            }
+
             const records = await response.json();
             const tbody = document.getElementById('history-body');
             tbody.innerHTML = '';
@@ -71,6 +86,7 @@
                 `;
             });
         } catch (error) {
+            console.error("加载历史战绩异常:", error);
             document.getElementById('history-body').innerHTML = '<tr><td colspan="4" style="color:red;">数据加载失败，请检查后端网络！</td></tr>';
         }
     }

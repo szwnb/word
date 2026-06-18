@@ -13,7 +13,7 @@
         .timer-alert { color: #e74c3c; }
         .question-text { font-size: 30px; font-weight: bold; color: #2980b9; margin-bottom: 30px; min-height: 80px; display: flex; justify-content: center; align-items: center; }
         .options-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-        .option-btn { background: #style; border: 2px solid #ecf0f1; background: #f8f9fa; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; text-align: left; transition: 0.2s; }
+        .option-btn { border: 2px solid #ecf0f1; background: #f8f9fa; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; text-align: left; transition: 0.2s; }
         .option-btn:hover { background: #e9ecef; border-color: #34495e; }
         .start-btn, .back-btn { width: 100%; padding: 14px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
         .back-btn { background: #34495e; margin-top: 20px; }
@@ -28,12 +28,6 @@
     <div id="config-screen" class="screen active">
         <h2>📝 考前自测设置</h2>
         <div class="config-group">
-            <label>选择测试词库：</label>
-            <select id="book-selector">
-                <option value="1">默认单词书 (ID: 1)</option>
-            </select>
-        </div>
-        <div class="config-group">
             <label>题量设置 (题数)：</label>
             <input type="number" id="quiz-count" value="10" min="1">
         </div>
@@ -46,6 +40,7 @@
             <input type="number" id="quiz-time" value="5" min="1">
         </div>
         <button class="start-btn" onclick="startNewExam()">开 始 考 试</button>
+        <button class="back-btn" onclick="window.location.href='/library.html'">返回主页</button>
     </div>
 
     <div id="quiz-screen" class="screen">
@@ -62,7 +57,7 @@
         <p>系统自动阅卷得分：</p>
         <div class="final-score" id="score-display">0 分</div>
         <p id="detail-display"></p>
-        <button class="back-btn" onclick="resetExam()">返回主页</button>
+        <button class="back-btn" onclick="window.location.href='/library.html'">返回主页</button>
     </div>
 </div>
 
@@ -72,7 +67,9 @@
     let correctCount = 0;
     let timerInterval = null;
     let examEndTime = 0;
-    let currentBookId = 1;
+
+    // 【修复点 1】：确保考的是咱们在主页选的那本书
+    let currentBookId = localStorage.getItem('selectedBookId') || 1;
 
     // 页面加载时，检查是否有未完成的考试记录（断电续考恢复）
     window.onload = function() {
@@ -99,17 +96,19 @@
 
     // 开启新考试
     async function startNewExam() {
-        currentBookId = document.getElementById('book-selector').value;
         const count = document.getElementById('quiz-count').value;
         const ratio = document.getElementById('quiz-ratio').value;
         const minutes = document.getElementById('quiz-time').value;
 
         try {
-            const currentUser = localStorage.getItem('current_user');
-            const response = await fetch(`/api/exam/submit?username=${currentUser}`,
+            // 【修复点 2】：呼叫 generate 生成试卷接口，而不是 submit！
+            const response = await fetch(`/api/exam/generate?bookId=${currentBookId}&count=${count}&reverseRatio=${ratio}`);
             paper = await response.json();
 
-            if(paper.length === 0) { alert("该词库没有数据！"); return; }
+            if(paper.length === 0) {
+                alert("抱歉，该词库暂无试题，请返回图书馆选择其他词书。");
+                return;
+            }
 
             // 计算结束时间戳，存入缓存
             examEndTime = Date.now() + (minutes * 60 * 1000);
@@ -123,7 +122,7 @@
             startTimerLoop();
             renderQuestion();
         } catch (error) {
-            alert("获取考卷异常");
+            alert("获取考卷异常，请检查后端服务！");
         }
     }
 
@@ -205,26 +204,32 @@
         document.getElementById('detail-display').innerText = `总题数：${paper.length} 道，答对：${correctCount} 道`;
         switchScreen('result-screen');
 
-        // 向后端中枢投递投递数据记录
-        await fetch('/api/exam/submit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                bookId: currentBookId,
-                score: score,
-                totalCount: paper.length,
-                correctCount: correctCount
-            })
-        });
+        try {
+            // 【修复点 3】：交卷时，务必带上身份证 (username) 给后端！
+            const currentUser = localStorage.getItem('current_user');
+            if(!currentUser) {
+                alert("未检测到有效身份，成绩无法记录");
+                return;
+            }
+
+            await fetch(`/api/exam/submit?username=${currentUser}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bookId: currentBookId,
+                    score: score,
+                    totalCount: paper.length,
+                    correctCount: correctCount
+                })
+            });
+        } catch(e) {
+            console.error("成绩上传失败", e);
+        }
     }
 
     function switchScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
-    }
-
-    function resetExam() {
-        switchScreen('config-screen');
     }
 </script>
 </body>
